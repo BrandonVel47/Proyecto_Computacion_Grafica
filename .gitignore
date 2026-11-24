@@ -1,0 +1,14 @@
+# Respaldos automáticos de Blender
+*.blend1
+*.blend2
+
+# Python
+__pycache__/
+*.pyc
+
+# Frames temporales de render (el video final y las capturas sí se versionan)
+renders/frames/
+
+# Sistema
+.DS_Store
+Thumbs.db
