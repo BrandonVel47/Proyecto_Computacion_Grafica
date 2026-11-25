@@ -209,7 +209,7 @@ def cristal_interior(name):
     m.set('Base Color', (0.02, 0.02, 0.02))
     m.set('Roughness', 0.05)
     m.set('Emission Color', (0.8, 0.75, 0.45))
-    m.set('Emission Strength', 0.6)
+    m.set('Emission Strength', 0.08)
     return m.mat
 
 

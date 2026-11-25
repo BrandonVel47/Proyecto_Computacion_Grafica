@@ -18,11 +18,10 @@ import lib_bpy
 import lib_materiales as lm
 for _m in (layout, lib_bpy, lm):
     importlib.reload(_m)
-from layout import CEIL_H, WALL_H, WALL_ZC, OUTER, TOTAL_L, X_END, TUNNEL_EXT
+from layout import CEIL_H, WALL_H, WALL_ZC, OUTER, TOTAL_L, X_END, TUNNEL_EXT, FPS, FRAMES
 from lib_bpy import fresh_collection, box
 
 SEED = 26                  # misma semilla = mismo patrón de parpadeo
-FRAMES = 1500              # duración de la animación (24 fps ≈ 62 s)
 P_FIJA, P_PARPADEO = 0.40, 0.70   # <0.40 fija, <0.70 parpadea, el resto apagada
 E_TUBO = 160.0             # potencia (W) de cada luminaria encendida
 
@@ -87,6 +86,7 @@ for tubo in tubos:
                     (tubo.location.x, tubo.location.y, tubo.location.z - 0.06))
     luz.data.spot_size, luz.data.spot_blend = math.radians(115), 0.7
     luz.data.shadow_soft_size = 0.03
+    luz.data.shadow_maximum_resolution = 0.02   # texel más grueso: ahorra memoria de sombras
     if r < P_FIJA:
         tubo.data.materials.append(mat_on)
         cuenta["fija"] += 1
@@ -146,9 +146,14 @@ sc.world = mundo
 
 motores = bpy.types.RenderSettings.bl_rna.properties['engine'].enum_items.keys()
 sc.render.engine = 'BLENDER_EEVEE_NEXT' if 'BLENDER_EEVEE_NEXT' in motores else 'BLENDER_EEVEE'
-sc.render.resolution_x, sc.render.resolution_y, sc.render.fps = 1920, 1080, 24
+sc.render.resolution_x, sc.render.resolution_y, sc.render.fps = 1920, 1080, FPS
 sc.frame_start, sc.frame_end = 1, FRAMES
 if hasattr(sc.eevee, "volumetric_end"):
     sc.eevee.volumetric_end = 120.0
+if hasattr(sc.eevee, "shadow_pool_size"):      # evita "Shadow buffer full" con ~30 luces
+    # el tamaño máximo del pool cambia entre versiones de Blender: se toma el mayor disponible
+    opciones = list(sc.eevee.bl_rna.properties['shadow_pool_size'].enum_items.keys())
+    sc.eevee.shadow_pool_size = opciones[-1]
+    sc.eevee.shadow_resolution_scale = 0.5
 
 print("Iluminación lista:", cuenta, "| luces:", sum(o.type == 'LIGHT' for o in ILU.objects))

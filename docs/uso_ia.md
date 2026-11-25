@@ -10,5 +10,6 @@ poder explicarlo técnicamente.
 | 2026-11-24 | Claude (Anthropic) | Reescritura del script de geometría (v2) para seguir el diseño de las fotos de referencia | Selección de las fotos de referencia y decisión de rediseñar la estación según ellas; ejecución y revisión del resultado |
 | 2026-11-25 | Claude (Anthropic) | Reorganización de los scripts en módulos compartidos (`layout.py`, `lib_bpy.py`) y script 02 del vagón, torniquetes y escalera; prueba automática de los scripts sin interfaz | Referencias fotográficas, revisión de las capturas del modelo en Blender y decisiones de diseño |
 | 2026-11-25 | Claude (Anthropic) | Scripts 03 (materiales procedurales) y 04 (iluminación, parpadeo y niebla), ruedas del vagón; pruebas con renders de verificación | Observación del defecto del vagón flotando, selección de referencias y revisión de resultados en Blender |
+| 2026-11-25 | Claude (Anthropic) | Script 05 del recorrido de cámara (spline, punto de mira, lentes y marcadores) y ajuste de sombras de EEVEE tras el aviso de memoria de sombras | Reporte de los errores en Blender (sin cámara y buffer de sombras), revisión del resultado y decisiones del recorrido |
 
 > Completar y ajustar cada fila con lo que realmente hizo el autor.

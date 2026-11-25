@@ -18,3 +18,6 @@ WALL_ZC = (CEIL_H - PLAT_H) / 2           # centro vertical de los muros
 X_END = PLAT_L / 2 + WALL_T               # donde empieza el túnel
 TOTAL_L = PLAT_L + 2 * (WALL_T + TUNNEL_EXT)
 SIDES = (1, -1)
+
+# Animación
+FPS, FRAMES = 24, 1500                    # 1500 frames a 24 fps ≈ 62 s

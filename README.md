@@ -64,6 +64,7 @@ volumétrica, cámaras y proyección en perspectiva, y animación de cámara sob
 | `02_vagon_y_accesos.py` | Vagón naranja, torniquetes y escalera de acceso | Listo |
 | `03_materiales.py` | Materiales PBR procedurales (concreto, mármol, travertino, metal oxidado, pintura) asignados por nombre | Listo |
 | `04_iluminacion.py` | Luminarias fijas, parpadeantes y apagadas, niebla volumétrica, mundo oscuro y motor EEVEE | Listo |
+| `05_camara.py` | Cámara sobre spline con punto de mira, distancia focal animada y marcadores de escena | Listo |
 
 Cada script borra y reconstruye su propia colección, por lo que puede ejecutarse varias veces.
 `layout.py` (parámetros de la estación), `lib_bpy.py` (funciones de modelado) y `lib_materiales.py` (constructor de materiales) son módulos compartidos: no se ejecutan solos, los importan los scripts. Hay que abrir el `.blend` desde la raíz del repositorio para que encuentren la carpeta `scripts/`.
