@@ -3,85 +3,23 @@ Estación "La Línea Cero" basada en fotos de estaciones del Metro CDMX.
 Metros. X = largo, Y = ancho (0 = eje entre las dos vías), Z = altura.
 Z=0 es el piso del andén. Andenes laterales (Y+ y Y-), 2 vías al centro.
 """
+import sys
+import importlib
+
 import bpy
-import bmesh
-import math
-from mathutils import Matrix
 
-# ---------- Parámetros ----------
-PLAT_L, PLAT_W, PLAT_H = 44.0, 4.5, 1.1   # andén: largo, ancho, alto sobre vía
-PIT_HALF = 3.8                            # medio ancho del foso de vías
-OUTER = PIT_HALF + PLAT_W                 # posición del muro del fondo
-CEIL_H, WALL_T = 3.5, 0.3                 # techo bajo (como en las fotos)
-TUNNEL_EXT = 30.0                         # túnel a cada extremo
-TRACK_Y, GAUGE = 1.9, 1.5                 # eje de cada vía y ancho de vía
-BEAM_STEP = 8.0                           # vigas y pilastras cada 8 m
-ALC_X, ALC_W, ALC_D = 12.0, 5.0, 3.5      # nicho de acceso (andén Y+)
-
-WALL_H = CEIL_H + PLAT_H
-WALL_ZC = (CEIL_H - PLAT_H) / 2
-X_END = PLAT_L / 2 + WALL_T               # donde empieza el túnel
-TOTAL_L = PLAT_L + 2 * (WALL_T + TUNNEL_EXT)
-SIDES = (1, -1)
-
-
-# ---------- Utilidades ----------
-def fresh_collection(name, parent):
-    """Crea o vacía una colección (el script se puede repetir)."""
-    col = bpy.data.collections.get(name)
-    if col is None:
-        col = bpy.data.collections.new(name)
-        parent.children.link(col)
-    else:
-        for o in list(col.objects):
-            bpy.data.objects.remove(o, do_unlink=True)
-    return col
-
-
-def _add(name, bm, center, col):
-    mesh = bpy.data.meshes.new(name)
-    bm.to_mesh(mesh)
-    bm.free()
-    obj = bpy.data.objects.new(name, mesh)
-    obj.location = center
-    col.objects.link(obj)
-    return obj
-
-
-def box(name, size, center, col):
-    """Caja con la escala aplicada a los vértices (UV consistentes)."""
-    bm = bmesh.new()
-    bmesh.ops.create_cube(bm, size=1.0)
-    for v in bm.verts:
-        v.co.x *= size[0]; v.co.y *= size[1]; v.co.z *= size[2]
-    return _add(name, bm, center, col)
-
-
-def pipe(name, radius, length, center, col):
-    """Tubo de 8 lados orientado a lo largo de X."""
-    bm = bmesh.new()
-    bmesh.ops.create_cone(bm, cap_ends=True, segments=8,
-                          radius1=radius, radius2=radius, depth=length)
-    bmesh.ops.rotate(bm, cent=(0, 0, 0),
-                     matrix=Matrix.Rotation(math.pi / 2, 3, 'Y'), verts=bm.verts)
-    return _add(name, bm, center, col)
-
-
-def repeat(obj, count, dx):
-    """Array: un solo objeto con N copias separadas dx en X."""
-    m = obj.modifiers.new("Repetir", 'ARRAY')
-    m.use_relative_offset = False
-    m.use_constant_offset = True
-    m.constant_offset_displace = (dx, 0, 0)
-    m.count = count
-
-
-def anchor(name, loc, col):
-    """Empty que marca dónde irá un elemento de los días siguientes."""
-    o = bpy.data.objects.new(name, None)
-    o.empty_display_type = 'ARROWS'
-    o.location = loc
-    col.objects.link(o)
+# Los módulos compartidos viven junto a este script (carpeta scripts/ del repo).
+_scripts_dir = bpy.path.abspath("//scripts")
+if _scripts_dir not in sys.path:
+    sys.path.append(_scripts_dir)
+import layout
+import lib_bpy
+importlib.reload(layout)       # recarga por si se editaron entre ejecuciones
+importlib.reload(lib_bpy)
+from layout import (PLAT_L, PLAT_W, PLAT_H, PIT_HALF, OUTER, CEIL_H, WALL_T,
+                    TUNNEL_EXT, TRACK_Y, GAUGE, BEAM_STEP, ALC_X, ALC_W, ALC_D,
+                    STAIR_W, STAIR_OPEN_H, WALL_H, WALL_ZC, X_END, TOTAL_L, SIDES)
+from lib_bpy import fresh_collection, box, pipe, repeat, anchor
 
 
 # ---------- Colecciones ----------
@@ -148,8 +86,15 @@ box("Acceso_Piso", (ALC_W, ALC_D, PLAT_H), (ALC_X, oy, -PLAT_H / 2), EST)
 for k in SIDES:
     box(f"Acceso_Muro_{k}", (WALL_T, ALC_D + WALL_T, WALL_H),
         (ALC_X + k * (ALC_W / 2 + WALL_T / 2), OUTER + (ALC_D + WALL_T) / 2, WALL_ZC), EST)
-box("Acceso_Fondo", (ALC_W + 2 * WALL_T, WALL_T, WALL_H),
-    (ALC_X, OUTER + ALC_D + WALL_T / 2, WALL_ZC), EST)
+# fondo del nicho con boca de escalera al centro (la escalera se modela en el script 02)
+yb = OUTER + ALC_D + WALL_T / 2
+side_w = (ALC_W + 2 * WALL_T - STAIR_W) / 2
+for k in SIDES:
+    box(f"Acceso_Fondo_{k}", (side_w, WALL_T, WALL_H),
+        (ALC_X + k * (STAIR_W / 2 + side_w / 2), yb, WALL_ZC), EST)
+box("Acceso_Fondo_Bajo", (STAIR_W, WALL_T, PLAT_H), (ALC_X, yb, -PLAT_H / 2), EST)
+box("Acceso_Fondo_Dintel", (STAIR_W, WALL_T, CEIL_H - STAIR_OPEN_H),
+    (ALC_X, yb, (CEIL_H + STAIR_OPEN_H) / 2), EST)
 box("Acceso_Techo", (ALC_W, ALC_D, 0.2), (ALC_X, oy, 2.8), EST)
 box("Acceso_Dintel", (ALC_W, WALL_T, CEIL_H - 2.9),
     (ALC_X, OUTER + WALL_T / 2, (CEIL_H + 2.9) / 2), EST)
@@ -185,10 +130,10 @@ for s in SIDES:
         pipe(f"Tuberia_{n}_{i}", 0.05, PLAT_L,
              (0, s * (OUTER - 0.35 - 0.14 * i), CEIL_H - 0.55), DET)
     box(f"Rotulo_Estacion_{n}", (3.2, 0.03, 0.32), (-4, s * (OUTER - 0.065), 2.725), DET)
-    for k, yoff in enumerate((1.3, 3.3)):  # 2 hileras de luminarias por andén
-        f = box(f"Luminaria_{n}_{k}", (2.4, 0.25, 0.08),
-                (-18, s * (PIT_HALF + yoff), CEIL_H - 0.04), LUZ)
-        repeat(f, 10, 4.0)
+    for k, yoff in enumerate((1.3, 3.3)):  # 2 hileras de 10 luminarias por andén
+        for i in range(10):                # una por una: cada tubo tendrá su propio estado
+            box(f"Luminaria_{n}_{k}_{i:02d}", (2.4, 0.25, 0.08),
+                (-18 + 4.0 * i, s * (PIT_HALF + yoff), CEIL_H - 0.04), LUZ)
 
 # letreros colgantes "Dirección ..." (foto 1)
 for s, x in ((1, -10.0), (-1, 6.0)):
