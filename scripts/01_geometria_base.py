@@ -17,8 +17,8 @@ import lib_bpy
 importlib.reload(layout)       # recarga por si se editaron entre ejecuciones
 importlib.reload(lib_bpy)
 from layout import (PLAT_L, PLAT_W, PLAT_H, PIT_HALF, OUTER, CEIL_H, WALL_T,
-                    TUNNEL_EXT, TRACK_Y, GAUGE, BEAM_STEP, ALC_X, ALC_W, ALC_D,
-                    STAIR_W, STAIR_OPEN_H, WALL_H, WALL_ZC, X_END, TOTAL_L, SIDES)
+                    TUNNEL_EXT, TRACK_Y, GAUGE, BEAM_STEP, ALC_X, ALC_W, ALC_D, ALC_CEIL,
+                    STAIR_W, STAIR_OPEN_H, WALL_H, WALL_ZC, X_END, TOTAL_L, SIDES, TORN_DY)
 from lib_bpy import fresh_collection, box, pipe, repeat, anchor
 
 
@@ -80,13 +80,13 @@ for sx in SIDES:
         box(f"Nicho_Fondo_{sx}_{s}", (0.15, 2.0, 2.6),
             (sx * (PLAT_L / 2 - 0.075), yc, 1.3), DET)
 
-# nicho de acceso: aquí irán torniquetes y escalera (día 2)
+# nicho de acceso: torniquetes (script 02) y escalera hacia los pasillos (script 03)
 oy = OUTER + ALC_D / 2
 box("Acceso_Piso", (ALC_W, ALC_D, PLAT_H), (ALC_X, oy, -PLAT_H / 2), EST)
 for k in SIDES:
     box(f"Acceso_Muro_{k}", (WALL_T, ALC_D + WALL_T, WALL_H),
         (ALC_X + k * (ALC_W / 2 + WALL_T / 2), OUTER + (ALC_D + WALL_T) / 2, WALL_ZC), EST)
-# fondo del nicho con boca de escalera al centro (la escalera se modela en el script 02)
+# fondo del nicho con boca de escalera al centro (la escalera se modela en el script 03)
 yb = OUTER + ALC_D + WALL_T / 2
 side_w = (ALC_W + 2 * WALL_T - STAIR_W) / 2
 for k in SIDES:
@@ -95,7 +95,7 @@ for k in SIDES:
 box("Acceso_Fondo_Bajo", (STAIR_W, WALL_T, PLAT_H), (ALC_X, yb, -PLAT_H / 2), EST)
 box("Acceso_Fondo_Dintel", (STAIR_W, WALL_T, CEIL_H - STAIR_OPEN_H),
     (ALC_X, yb, (CEIL_H + STAIR_OPEN_H) / 2), EST)
-box("Acceso_Techo", (ALC_W, ALC_D, 0.2), (ALC_X, oy, 2.8), EST)
+box("Acceso_Techo", (ALC_W, ALC_D, 0.2), (ALC_X, oy, ALC_CEIL + 0.1), EST)
 box("Acceso_Dintel", (ALC_W, WALL_T, CEIL_H - 2.9),
     (ALC_X, OUTER + WALL_T / 2, (CEIL_H + 2.9) / 2), EST)
 
@@ -142,9 +142,9 @@ for s, x in ((1, -10.0), (-1, 6.0)):
     for r in SIDES:
         box(f"Varilla_{s}_{r}", (0.03, 0.03, 0.4), (x, yc + r * 1.2, CEIL_H - 0.2), DET)
 
-# ---------- Anclas para el día 2 ----------
+# ---------- Anclas para los scripts siguientes ----------
 anchor("ANCLA_Vagon", (0, TRACK_Y, -PLAT_H), ANC)
-anchor("ANCLA_Torniquetes", (ALC_X, OUTER + 1.2, 0), ANC)
+anchor("ANCLA_Torniquetes", (ALC_X, OUTER + TORN_DY, 0), ANC)
 anchor("ANCLA_Escalera", (ALC_X, OUTER + ALC_D, 0), ANC)
 
 print("Estación v2 creada:", sum(len(c.objects) for c in root.children_recursive), "objetos")

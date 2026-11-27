@@ -223,3 +223,135 @@ def niebla(name):
     m.link(dens, v.inputs['Density'])
     m.link(v.outputs['Volume'], m.out.inputs['Volume'])
     return m.mat
+
+
+# ------------------------------------------------- materiales de pasillos y detalles
+def _muro_uv(m):
+    """Coordenadas 2D para muros en cualquier orientación: u = x + y, v = z.
+    En un muro a lo largo de X la y es constante (y viceversa), así que u recorre el muro."""
+    sep = m.node('ShaderNodeSeparateXYZ')
+    m.link(m.coord, sep.inputs['Vector'])
+    suma = m.node('ShaderNodeMath')
+    m.link(sep.outputs['X'], suma.inputs[0])
+    m.link(sep.outputs['Y'], suma.inputs[1])
+    comb = m.node('ShaderNodeCombineXYZ')
+    m.link(suma.outputs['Value'], comb.inputs['X'])
+    m.link(sep.outputs['Z'], comb.inputs['Y'])
+    return comb.outputs['Vector']
+
+
+def azulejo(name, color=(0.5, 0.48, 0.41), lado=0.2):
+    """Azulejo cuadrado con junta oscura y escurrimientos verticales de humedad."""
+    m = Mat(name)
+    b = m.node('ShaderNodeTexBrick')
+    b.offset = 0.0
+    c2 = tuple(c * 0.9 for c in color)
+    for k, v in (('Color1', _rgba(color)), ('Color2', _rgba(c2)),
+                 ('Mortar', (0.1, 0.09, 0.08, 1)), ('Mortar Size', 0.006),
+                 ('Brick Width', lado), ('Row Height', lado), ('Scale', 1.0)):
+        b.inputs[k].default_value = v
+    m.link(_muro_uv(m), b.inputs['Vector'])
+    # manchas alargadas en vertical: agua que escurre desde el techo
+    escurre = m.ramp(m.noise(1.0, 6, m.mapping(scale=(3, 3, 0.35))),
+                     [(0.45, (0, 0, 0)), (0.7, (0.75, 0.75, 0.75))])
+    sucio = m.mix(escurre, b.outputs['Color'], (0.09, 0.075, 0.05))
+    m.set('Base Color', m.mix(m.grime(0.7), sucio, (0.1, 0.085, 0.06)))   # manchas grandes
+    m.set('Roughness', m.ramp(escurre, [(0.0, (0.15,) * 3), (0.7, (0.65,) * 3)]))
+    m.bump(b.outputs['Fac'], 0.25, 0.003)
+    return m.mat
+
+
+def terrazo(name, base=(0.36, 0.34, 0.31)):
+    """Piso de terrazo: grano fino de piedra, pulido pero con zonas sucias y mates."""
+    m = Mat(name)
+    grano = m.voronoi(45)
+    claro = tuple(min(c * 1.6, 1) for c in base)
+    piedra = m.ramp(grano, [(0.0, (0.05, 0.05, 0.05)), (0.25, base), (0.6, claro)])
+    grime = m.grime(0.9)
+    m.set('Base Color', m.mix(grime, piedra, (0.05, 0.045, 0.04)))
+    m.set('Roughness', m.ramp(grime, [(0.0, (0.18,) * 3), (0.6, (0.7,) * 3)]))
+    m.bump(grano, 0.1, 0.002)
+    return m.mat
+
+
+def lamina(name, color=(0.24, 0.28, 0.25)):
+    """Cortina metálica: tablillas horizontales (ondas en Z) con pintura y óxido."""
+    m = Mat(name)
+    w = m.node('ShaderNodeTexWave')
+    w.wave_type, w.bands_direction = 'BANDS', 'Z'
+    w.inputs['Scale'].default_value = 3.1          # tablillas de ~10 cm
+    m.link(m.coord, w.inputs['Vector'])
+    oxido = m.noise(2.5, 8)
+    m.set('Base Color', m.ramp(oxido, [(0.5, color), (0.62, (0.2, 0.08, 0.03))]))
+    m.set('Metallic', m.ramp(oxido, [(0.5, (0.6,) * 3), (0.62, (0.1,) * 3)]))
+    m.set('Roughness', m.ramp(oxido, [(0.5, (0.45,) * 3), (0.62, (0.9,) * 3)]))
+    m.bump(w.outputs['Fac'], 0.6, 0.02)
+    return m.mat
+
+
+def madera(name):
+    """Tablones viejos: veta alargada a lo largo de Y (los tablones tapian un hueco en Y)."""
+    m = Mat(name)
+    veta = m.noise(1.0, 8, m.mapping(scale=(14, 0.8, 14)))
+    m.set('Base Color', m.ramp(veta, [(0.3, (0.07, 0.04, 0.02)), (0.7, (0.28, 0.17, 0.08))]))
+    m.set('Roughness', 0.85)
+    m.bump(veta, 0.4, 0.01)
+    return m.mat
+
+
+def agua(name):
+    """Charco: casi negro y muy liso, refleja las luces; ondas leves en la superficie."""
+    m = Mat(name)
+    m.set('Base Color', (0.03, 0.03, 0.035))
+    m.set('Roughness', 0.06)
+    m.set('IOR', 1.33)
+    m.bump(m.noise(8, 3), 0.04, 0.01)
+    return m.mat
+
+
+def cartel(name):
+    """Carteles publicitarios viejos: colores deslavados y papel arrancado a pedazos."""
+    m = Mat(name)
+    impreso = m.ramp(m.noise(1.8, 4), [(0.3, (0.35, 0.06, 0.05)), (0.45, (0.55, 0.45, 0.2)),
+                                       (0.6, (0.08, 0.2, 0.32)), (0.75, (0.6, 0.6, 0.55))])
+    roto = m.ramp(m.noise(3.0, 10), [(0.55, (0, 0, 0)), (0.58, (1, 1, 1))])
+    m.set('Base Color', m.mix(roto, impreso, (0.42, 0.4, 0.35)))
+    m.set('Roughness', 0.8)
+    return m.mat
+
+
+def cristal_luz(name, color, fuerza):
+    """Vidrio iluminado desde dentro (ventanas del tren en marcha, taquilla)."""
+    m = Mat(name)
+    m.set('Base Color', (0.02, 0.02, 0.02))
+    m.set('Roughness', 0.08)
+    m.set('Emission Color', color)
+    m.set('Emission Strength', fuerza)
+    return m.mat
+
+
+def cristal_tren(name, fuerza=1.6):
+    """Ventanas del tren en marcha: luz interior más intensa arriba (lámparas del techo) y
+    barras verticales oscuras (tubos de apoyo) para sugerir el interior sin modelarlo."""
+    m = Mat(name)
+    m.set('Base Color', (0.02, 0.02, 0.02))
+    m.set('Roughness', 0.08)
+    sep = m.node('ShaderNodeSeparateXYZ')
+    m.link(m.coord, sep.inputs['Vector'])
+    altura = m.node('ShaderNodeMapRange')          # z local de la ventana -> 0..1
+    altura.inputs['From Min'].default_value, altura.inputs['From Max'].default_value = -0.6, 0.5
+    m.link(sep.outputs['Z'], altura.inputs['Value'])
+    degradado = m.ramp(altura.outputs['Result'], [(0.0, (0.12, 0.13, 0.14)), (1.0, (0.85, 0.95, 1.0))])
+    w = m.node('ShaderNodeTexWave')
+    w.wave_type, w.bands_direction = 'BANDS', 'X'
+    w.inputs['Scale'].default_value = 0.25          # un tubo cada ~1.25 m
+    m.link(m.coord, w.inputs['Vector'])
+    tubos = m.ramp(w.outputs['Fac'], [(0.9, (1, 1, 1)), (0.96, (0.05, 0.05, 0.05))])
+    mult = m.node('ShaderNodeMix')
+    mult.data_type, mult.blend_type = 'RGBA', 'MULTIPLY'
+    mult.inputs[0].default_value = 1.0
+    m.link(degradado, mult.inputs[6])
+    m.link(tubos, mult.inputs[7])
+    m.set('Emission Color', mult.outputs[2])
+    m.set('Emission Strength', fuerza)
+    return m.mat

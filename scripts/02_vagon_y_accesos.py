@@ -1,5 +1,6 @@
 """02_vagon_y_accesos.py
-Vagón naranja (estilo de las fotos de referencia), torniquetes y escalera de acceso.
+Vagón naranja (estilo de las fotos de referencia) y torniquetes del nicho de acceso.
+La escalera hacia los pasillos se construye en 03_pasillos.py.
 Requiere haber ejecutado antes 01_geometria_base.py: las posiciones salen de los
 empties ANCLA_* de la escena. Metros; ver layout.py para el sistema de coordenadas.
 """
@@ -16,7 +17,7 @@ import layout
 import lib_bpy
 importlib.reload(layout)
 importlib.reload(lib_bpy)
-from layout import WALL_T, SIDES, STAIR_W, PLAT_H, GAUGE
+from layout import SIDES, PLAT_H, GAUGE
 from lib_bpy import fresh_collection, box, pipe, repeat, anchor_location
 
 if "Estacion_Base" not in bpy.data.collections:
@@ -94,23 +95,5 @@ for i in range(4):
                    (hub[0] + d[0] * ARM_LEN / 2, hub[1], hub[2] + d[1] * ARM_LEN / 2), ACC)
         arm.rotation_euler = (0, -math.radians(a), 0)
 
-# =====================================================================
-# ESCALERA (sube por la boca del fondo del nicho y se pierde en la oscuridad)
-# =====================================================================
-sx, sy, _ = anchor_location("ANCLA_Escalera")   # cara interior del muro del fondo
-RUN, RISE, STEPS = 0.3, 0.18, 10
-y0 = ty + PITCH                                 # empieza justo después de los torniquetes
-for k in range(STEPS):
-    box(f"Escalon_{k}", (STAIR_W, RUN, (k + 1) * RISE),
-        (sx, y0 + RUN * (k + 0.5), (k + 1) * RISE / 2), ACC)
-
-# caja de la escalera detrás del muro: paredes, techo y fondo
-y_in, y_end = sy + WALL_T, y0 + STEPS * RUN + 0.2
-depth = y_end - y_in
-for k in SIDES:
-    box(f"Escalera_Pared_{k}", (0.2, depth, 3.2), (sx + k * (STAIR_W / 2 + 0.1), y_in + depth / 2, 1.6), ACC)
-box("Escalera_Techo", (STAIR_W + 0.4, depth, 0.2), (sx, y_in + depth / 2, 3.1), ACC)
-box("Escalera_Fondo", (STAIR_W + 0.4, 0.2, 3.2), (sx, y_end + 0.1, 1.6), ACC)
-
-print("Vagón, torniquetes y escalera creados:",
+print("Vagón y torniquetes creados:",
       len(VAG.objects), "+", len(ACC.objects), "objetos")
