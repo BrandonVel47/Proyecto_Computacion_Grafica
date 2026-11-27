@@ -39,6 +39,8 @@ FORZAR = {
     "Luminaria_N_1_00": "fija", "Luminaria_N_0_01": "fija",   # andén donde se ve pasar el tren
 }
 RENDER_SAMPLES = 64                # muestras de EEVEE por frame (menos = más rápido)
+AMBIENTE = (0.012, 0.015, 0.022)   # luz mínima del mundo: EEVEE no rebota la luz, así que lo
+                                   # que ninguna lámpara toca queda negro; esto lo levanta un poco
 REFLEJOS = False                   # raytracing de EEVEE: reflejos más fieles en pisos y charcos,
                                    # pero deja puntos blancos (ruido) y alarga el render
 
@@ -190,7 +192,7 @@ for f in (fog, fog2):
 mundo = bpy.data.worlds.get("Mundo") or bpy.data.worlds.new("Mundo")
 mundo.use_nodes = True
 fondo_nodo = mundo.node_tree.nodes.get("Background") or mundo.node_tree.nodes.new("ShaderNodeBackground")
-fondo_nodo.inputs['Color'].default_value = (0.004, 0.006, 0.01, 1)
+fondo_nodo.inputs['Color'].default_value = (*AMBIENTE, 1)
 fondo_nodo.inputs['Strength'].default_value = 1.0
 sc.world = mundo
 
