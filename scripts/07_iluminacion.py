@@ -34,6 +34,7 @@ FORZAR = {
     "Luminaria_A_00": "parpadea",     # nicho: la luz que tartamudea antes de subir
     "Luminaria_E_00": "fija", "Luminaria_E_01": "parpadea",
     "Luminaria_P_02": "fija", "Luminaria_P_06": "parpadea",   # la desprendida
+    "Luminaria_V_1_1": "fija",        # frente a la taquilla
     "Luminaria_V_0_2": "apagada", "Luminaria_V_1_2": "apagada",  # junto a la cortina: oscuro
     "Luminaria_N_1_00": "fija", "Luminaria_N_0_01": "fija",   # andén donde se ve pasar el tren
 }

@@ -28,6 +28,8 @@ VAG = bpy.data.collections["Vagon"]
 TREN = fresh_collection("Tren", root)
 
 CAR_L, GAP, N_CARS = 15.0, 0.6, 3          # mismo largo que el vagón del script 02
+RELLENO = 25.0      # W por vagón de luz de relleno sobre el costado que ve la cámara
+                    # (0 = el tren pasa como silueta negra con las ventanas encendidas)
 PASO = CAR_L + GAP
 LARGO = N_CARS * CAR_L + (N_CARS - 1) * GAP
 cx, cy, _ = anchor_location("ANCLA_Vagon")  # centro del vagón original
@@ -91,6 +93,17 @@ for k in range(N_CARS):                             # interior: luz fría que sa
         i.data.shadow_soft_size = 1.0
         if hasattr(i.data, "use_custom_distance"):  # EEVEE: alcance limitado a 7 m
             i.data.use_custom_distance, i.data.cutoff_distance = True, 7.0
+# Relleno: EEVEE no tiene rebote de luz, y las luces del andén casi no alcanzan el centro de
+# las vías, así que el costado del tren quedaría negro. Un panel de luz por vagón, entre las
+# dos vías y mirando hacia el tren (-Y), deja ver el naranja sin iluminar nada más.
+if RELLENO > 0:
+    for k in range(N_CARS):
+        r = luz(f"Luz_Tren_Relleno_{k}", 'AREA', RELLENO, (1.0, 0.95, 0.9),
+                (k * PASO, TRACK_Y, 1.5), (math.radians(-90), 0, 0))
+        r.data.shape, r.data.size, r.data.size_y = 'RECTANGLE', CAR_L - 1.0, 2.6
+        r.data.use_shadow = False
+        if hasattr(r.data, "use_custom_distance"):
+            r.data.use_custom_distance, r.data.cutoff_distance = True, 9.0   # cubre el vagón entero
 cola = luz("Luz_Tren_Cola", 'POINT', 25.0, (1.0, 0.05, 0.02),
            ((N_CARS - 1) * PASO + CAR_L / 2 + 0.3, 0, 0.8))
 cola.data.use_shadow = False
