@@ -80,7 +80,7 @@ REGLAS = [
       "Marco_Anuncio", "Marco_Mapa", "Cortina_Guia", "Cortina_Caja", "Bote_Tapa",
       "TextoNegro"), "negro"),
     (("Pasamanos", "Poste_Pasamanos", "Taquilla_Mostrador"), "acero"),
-    (("Banca", "Bote_Basura", "Puerta_Servicio"), "metal"),
+    (("Banca", "Bote_Basura", "Puerta_Servicio", "Clavo"), "metal"),
     (("Cortina",), "lamina"),
     (("Tablon",), "madera"),
     (("Charco",), "agua"),

@@ -175,7 +175,16 @@ for i, (z, giro, dyy) in enumerate(((0.35, 0.05, 0.0), (0.8, -0.07, 0.1), (1.3, 
                                      (1.75, 0.09, 0.05), (2.25, -0.04, 0.0))):
     tab = box(f"Tablon_{i}", (0.035, HUECO_W + 0.5, 0.2), (PB_X0 + 0.03, PB_YC + dyy, Z_PAS + z), PAS)
     tab.rotation_euler = (giro, 0, 0)
-text("TextoRojo_NoPasar", "NO PASAR", 0.5, (PB_X0 + 0.09, PB_YC, Z_PAS + 1.3), '+X', PAS)
+# tabla de clausura clavada sobre los tablones, con el aviso pintado encima (el texto ya no
+# queda flotando entre tablones): la tabla se apoya en ellos y los clavos la sujetan
+CART_W, CART_H, CART_T = 2.0, 0.6, 0.05
+x_cart = PB_X0 + 0.0475 + CART_T / 2                    # cara trasera pegada a los tablones
+box("Tablon_Cartel", (CART_T, CART_W, CART_H), (x_cart, PB_YC, Z_PAS + 1.3), PAS)
+for i, (dy, dz) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
+    cylinder(f"Clavo_Cartel_{i}", 0.02, 0.015,
+             (x_cart + CART_T / 2 + 0.006, PB_YC + dy * (CART_W / 2 - 0.12),
+              Z_PAS + 1.3 + dz * (CART_H / 2 - 0.1)), PAS, axis='X')
+text("TextoRojo_NoPasar", "NO PASAR", 0.34, (x_cart + CART_T / 2 + 0.004, PB_YC, Z_PAS + 1.3), '+X', PAS)
 letrero("Corr", "CORRESPONDENCIA", (PB_X0 + 0.03, PB_YC, Z_PAS + HUECO_H + 0.2), 2.6, 0.32, '+X')
 
 # letreros colgantes con flechas y anuncios vacíos en los muros
