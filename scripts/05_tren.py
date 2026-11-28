@@ -115,9 +115,12 @@ x_fin = -FIN_TUNEL - LARGO - 1.0 + CAR_L / 2       # la cola termina fuera del t
 f_fin = round(TREN_F0 + (x_ini - x_fin) / TREN_V * FPS)
 rig.location = (x_ini, -TRACK_Y, 0)
 
-prefs = bpy.context.preferences.edit                # interpolación lineal solo para estas llaves
+# Interpolación Bezier (suave): el tren arranca y termina despacio y pasa más rápido por el
+# centro del tramo (velocidad pico = 1.5 × la media = 54 km/h). Se fija de forma explícita
+# porque la interpolación de las llaves nuevas depende de las preferencias del usuario.
+prefs = bpy.context.preferences.edit
 previa = prefs.keyframe_new_interpolation_type
-prefs.keyframe_new_interpolation_type = 'LINEAR'
+prefs.keyframe_new_interpolation_type = 'BEZIER'
 try:
     rig.keyframe_insert('location', index=0, frame=TREN_F0)
     rig.location.x = x_fin
@@ -127,11 +130,17 @@ finally:
 bpy.context.scene.frame_set(bpy.context.scene.frame_current)
 
 
+def x_rig(f):
+    """Posición x del rig en el frame f (Bezier con manijas planas = smoothstep)."""
+    u = min(max((f - TREN_F0) / (f_fin - TREN_F0), 0.0), 1.0)
+    return x_ini + (x_fin - x_ini) * (3 * u * u - 2 * u ** 3)
+
+
 def frame_punta_en(x):
-    """Frame en que la punta del tren pasa por la coordenada x."""
-    return round(TREN_F0 + (x_ini - CAR_L / 2 - x) / TREN_V * FPS)
+    """Primer frame en que la punta del tren llega a la coordenada x."""
+    return next(f for f in range(TREN_F0, f_fin + 1) if x_rig(f) - CAR_L / 2 <= x)
 
 
-print(f"Tren: {N_CARS} vagones, {len(TREN.objects)} objetos, {TREN_V * 3.6:.0f} km/h,"
+print(f"Tren: {N_CARS} vagones, {len(TREN.objects)} objetos, {TREN_V * 3.6:.0f} km/h de media,"
       f" frames {TREN_F0}-{f_fin}; entra a la estación en {frame_punta_en(X_END - 0.3)}"
       f" y sale del andén en {frame_punta_en(-X_END + 0.3)}")

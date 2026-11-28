@@ -24,13 +24,28 @@ rng = np.random.default_rng(SEED)
 
 # marcadores de la cámara (frame -> segundo)
 T_TUNEL, T_TREN_ARRANCA = 1 / FPS, 442 / FPS
-T_TREN_ESTACION, T_TREN_SALE = 568 / FPS, 673 / FPS   # entra / sale del andén
 T_TREN_FIN = 859 / FPS
 T_ESCALERA, T_PASILLO, T_VESTIBULO = 1440 / FPS, 1840 / FPS, 2300 / FPS
+
+# --- el tren y la cámara en el tramo del tren (de 05_tren.py y 08_camara.py) -----------------
+# El volumen del tren sale de la distancia REAL entre la cámara y el tren, no de una curva a ojo.
+TREN_X0 = 22.3 + 30.0 + 22.0 + 7.5      # x del rig al arrancar (FIN_TUNEL + 22 + CAR_L/2)
+TREN_X1 = -92.0                         # x del rig al terminar (05_tren.py)
+TREN_F0, TREN_F1 = 442, 859             # el movimiento es Bezier (suave), no de velocidad constante
+TREN_ADELANTE, TREN_ATRAS = 7.5, 7.5 + 2 * 15.6   # la punta va 7.5 m delante del rig, la cola 38.7 m detrás
+TREN_Y, TREN_Z = -1.9, 1.5
+# (frame, posición de la cámara, punto al que mira) de los puntos de control de 08_camara.py
+CAM = [(442, (-17.9, 4.2, 1.6), (-8.0, -1.4, 1.3)), (460, (-17.5, 4.6, 1.6), (-8.0, -1.4, 1.3)),
+       (600, (-16.8, 5.4, 1.6), (-7.0, -1.9, 1.4)), (660, (-16.6, 5.6, 1.6), (-12.0, -1.9, 1.4)),
+       (720, (-16.4, 5.7, 1.6), (-18.0, -1.9, 1.4)), (790, (-16.2, 5.8, 1.6), (-25.0, -2.1, 1.2)),
+       (860, (-14.5, 5.8, 1.6), (-20.0, 1.0, 1.3))]
+D_REF, EXP_DIST = 8.0, 0.35             # a 8 m (pasando junto a la cámara) ganancia 1; ~1/d^0.35
+                                        # (el túnel conduce el sonido: cae menos que al aire libre)
 
 # --- mezcla (0..1) -------------------------------------------------------------------------
 VOL_DRONE, VOL_VIENTO, VOL_ZUMBIDO = 0.55, 0.35, 0.16
 VOL_TREN, VOL_GOTAS, VOL_GOLPES, VOL_CHISPAS, VOL_TENSION = 0.9, 0.30, 0.45, 0.22, 0.30
+VOL_AIRE = 0.55                         # ráfagas del tren, corrientes y silbidos
 
 N = int(DUR * SR)
 t = np.arange(N) / SR
@@ -58,6 +73,58 @@ def paso_banda(x, f0, f1, orden=2):
 
 def paso_bajo(x, fc, orden=2):
     return signal.sosfilt(signal.butter(orden, fc, btype="low", fs=SR, output="sos"), x)
+
+
+def rig_x_en(f):
+    """x del tren en el frame f: Bezier con manijas planas entre dos llaves = smoothstep."""
+    u = min(max((f - TREN_F0) / (TREN_F1 - TREN_F0), 0.0), 1.0)
+    return TREN_X0 + (TREN_X1 - TREN_X0) * (3 * u * u - 2 * u ** 3)
+
+
+def frame_cuando(x_punta=None, x_cola=None):
+    """Primer frame en que la punta (o la cola) del tren llega a la coordenada x dada."""
+    for f in np.arange(TREN_F0, TREN_F1, 0.25):
+        if x_punta is not None and rig_x_en(f) - TREN_ADELANTE <= x_punta:
+            return f
+        if x_cola is not None and rig_x_en(f) + TREN_ATRAS <= x_cola:
+            return f
+    return TREN_F1
+
+
+T_TREN_ESTACION = frame_cuando(x_punta=22.0) / FPS    # la punta entra al andén (x = 22 m)
+X_CAMARA = -16.6                                      # x de la cámara junto al tren
+T_PUNTA = frame_cuando(x_punta=X_CAMARA) / FPS         # la punta pasa frente a la cámara
+T_COLA = frame_cuando(x_cola=X_CAMARA) / FPS           # la cola pasa frente a la cámara
+
+
+def velocidad_tren(seg):
+    """Rapidez del tren (m/s): derivada del smoothstep; 0 al arrancar y al parar, pico de 15 m/s."""
+    u = min(max((seg * FPS - TREN_F0) / (TREN_F1 - TREN_F0), 0.0), 1.0)
+    return (TREN_X0 - TREN_X1) / ((TREN_F1 - TREN_F0) / FPS) * 6 * u * (1 - u)
+
+
+def tren_vs_camara(seg):
+    """Distancia (m) de la cámara al punto más cercano del tren y panorama (-1 izq .. 1 der)
+    en el instante `seg`. El tren es un segmento de 46 m sobre la vía sur que avanza hacia -X."""
+    f = seg * FPS
+    cam = np.array([np.interp(f, [c[0] for c in CAM], [c[1][i] for c in CAM]) for i in range(3)])
+    mira = np.array([np.interp(f, [c[0] for c in CAM], [c[2][i] for c in CAM]) for i in range(3)])
+    rig_x = rig_x_en(f)
+    x_punta, x_cola = rig_x - TREN_ADELANTE, rig_x + TREN_ATRAS
+    px = min(max(cam[0], x_punta), x_cola)           # punto del tren más cercano a la cámara
+    v = np.array([px, TREN_Y, TREN_Z]) - cam
+    h = (mira - cam)[:2]
+    h = h / np.linalg.norm(h)
+    cruz = h[0] * v[1] - h[1] * v[0]                 # >0: el tren queda a la izquierda
+    pan = float(np.clip(-cruz / max(np.linalg.norm(v[:2]), 1e-6), -1, 1)) * 0.8
+    return float(np.linalg.norm(v)), pan
+
+
+def ganancia_tren(seg):
+    d, _ = tren_vs_camara(seg)
+    g = min(1.0, (D_REF / d) ** EXP_DIST)
+    # el tren se detiene en el frame 859: el sonido muere despacio, ya dentro del túnel
+    return g * float(np.interp(seg, [T_TREN_FIN, T_TREN_FIN + 3.5], [1.0, 0.0]))
 
 
 def reverb(x, seg=2.2, mezcla=0.35):
@@ -127,36 +194,36 @@ def zumbido():
 # 4) Tren: se oye venir por el túnel, pasa en el andén (clac-clac de las juntas) y se aleja
 # =============================================================================================
 def tren(est):
-    # Intensidad: sube desde que arranca (lejos), máximo mientras cruza el andén, se aleja
-    inten = env([(0, 0), (T_TREN_ARRANCA - 2, 0), (T_TREN_ARRANCA + 3, 0.12),
-                 (T_TREN_ESTACION - 1.0, 0.55), (T_TREN_ESTACION + 1.5, 1.0),
-                 (T_TREN_SALE - 0.5, 0.85), (T_TREN_SALE + 3, 0.35), (T_TREN_FIN, 0.0)])
+    # Intensidad según la distancia real cámara-tren (control a 50 Hz, suavizado)
+    tc = np.arange(0, DUR, 0.02)
+    gc = np.array([ganancia_tren(x) if x > TREN_F0 / FPS - 1 else 0.0 for x in tc])
+    gc *= np.clip((tc - (TREN_F0 / FPS - 1)) / 3.0, 0, 1)      # entra desde el silencio, de lejos
+    inten = np.interp(t, tc, gc)
     r = ruido()
     rodar = paso_banda(r, 60, 260, 3) * 2.2 + paso_banda(r, 700, 2500, 2) * 0.45
-    # modulación por las ruedas: ~14 Hz (juntas de riel cada ~0.7 m a 10 m/s)
-    rodar *= 0.75 + 0.25 * np.sin(2 * np.pi * 14.0 * t)
+    # modulación por las ruedas: ~1.4 ciclos por metro recorrido, así que sigue la rapidez real
+    v_t = np.interp(t, tc, [velocidad_tren(x) for x in tc])
+    rodar *= 0.75 + 0.25 * np.sin(2 * np.pi * np.cumsum(1.4 * v_t) / SR)
     sonido = rodar * inten
-    # clacs de juntas: más seguidos cuanto más cerca (a 10 m/s, junta cada ~12 m ≈ 1.2 s,
-    # dos golpes por bogie)
+    # clacs de juntas (dos golpes por bogie), con el volumen y el panorama de ese instante
     tt = T_TREN_ARRANCA + 2
     clac_n = int(0.06 * SR)
     clac = rng.standard_normal(clac_n) * np.exp(-np.arange(clac_n) / (0.012 * SR))
     clac = paso_banda(clac, 150, 2200)
     clac /= np.max(np.abs(clac))
-    while tt < T_TREN_FIN - 1:
-        g = np.interp(tt, [T_TREN_ARRANCA + 2, T_TREN_ESTACION, T_TREN_SALE, T_TREN_FIN],
-                      [0.1, 0.9, 0.7, 0.05])
-        pan = np.interp(tt, [T_TREN_ARRANCA, T_TREN_ESTACION, T_TREN_SALE, T_TREN_FIN],
-                        [-0.6, 0.0, 0.5, 0.9])
+    while tt < T_TREN_FIN - 0.5:
+        g = ganancia_tren(tt)
+        pan = tren_vs_camara(tt)[1]
         for d in (0.0, 0.17):
             evento(est, tt + d, clac, g * 0.6 * (0.8 + 0.4 * rng.random()), pan)
-        tt += 0.72 + 0.1 * rng.standard_normal()
-    # chirrido corto de frenos metálicos al entrar al andén (sin llegar a parar)
+        tt += (0.72 * 10.0 / max(velocidad_tren(tt), 2.0)) * (1 + 0.1 * rng.standard_normal())
+    # chirrido corto de frenos metálicos cuando la punta pasa frente a la cámara
+    t_ch = T_PUNTA - 1.0
     chirrido_t = np.linspace(0, 2.0, int(2.0 * SR))
     f_ch = 1800 + 500 * np.sin(2 * np.pi * 0.5 * chirrido_t) + 300 * chirrido_t
     ch = np.sin(2 * np.pi * np.cumsum(f_ch) / SR) * np.hanning(len(chirrido_t))
     ch += 0.5 * paso_banda(rng.standard_normal(len(chirrido_t)), 2200, 3200) * np.hanning(len(chirrido_t))
-    evento(est, T_TREN_ESTACION + 0.2, ch, 0.05)
+    evento(est, t_ch, ch, 0.05, tren_vs_camara(t_ch + 1.0)[1])
     return sonido
 
 
@@ -184,7 +251,7 @@ def eventos_sueltos(est):
     while tt < DUR - 5:
         zona = np.interp(tt, [0, T_TREN_ARRANCA, T_TREN_FIN, T_ESCALERA, T_PASILLO, DUR],
                          [0.6, 0.4, 1.0, 0.8, 0.4, 0.2])
-        if not (T_TREN_ESTACION - 1 < tt < T_TREN_SALE + 4):          # no durante el tren
+        if not (T_TREN_ESTACION - 1 < tt < T_TREN_FIN + 1):          # no durante el tren
             evento(est, tt, gota(), VOL_GOTAS * zona * rng.uniform(0.4, 1.0), rng.uniform(-0.8, 0.8))
         tt += rng.uniform(1.6, 5.5)
     # golpes lejanos, irregulares, a partir de la escalera y sobre todo en los pasillos
@@ -219,6 +286,59 @@ def tension():
     return s * env([(0, 0), (t0, 0), (t0 + 6, 0.35), (DUR - 6, 0.8), (DUR - 2, 1.0), (DUR, 0.0)])
 
 
+
+# =============================================================================================
+# 8) Aire según la escena: el tren empuja una corriente por el túnel (llega antes que él),
+#    rachas al pasar la punta y la cola, corriente en escalera y pasillo, silbo de las rejillas
+#    de ventilación al pasar junto a ellas y soplo bajo la cortina al final.
+# =============================================================================================
+def racha(centro, ancho, f0, f1, ganancia, pan=0.0, orden=2):
+    """Racha de aire: ruido en banda con envolvente gaussiana, mono con panorama."""
+    n = int(ancho * 6 * SR)
+    g = np.exp(-0.5 * ((np.arange(n) / SR - ancho * 3) / ancho) ** 2)
+    r = paso_banda(rng.standard_normal(n), f0, f1, orden) * g
+    return r / np.max(np.abs(r)) * ganancia
+
+
+def aire(est):
+    # a) corriente que empuja el tren: sube mientras se acerca, máximo al pasar la punta,
+    #    y al irse la cola jala el aire hacia el túnel (succión que decae despacio)
+    t_punta, t_cola = T_PUNTA, T_COLA
+    corriente = env([(0, 0), (T_TREN_ARRANCA + 1, 0), (T_TREN_ESTACION, 0.35), (t_punta, 1.0),
+                     (t_cola, 0.8), (t_cola + 3.0, 0.3), (T_TREN_FIN + 3.0, 0.0)])
+    r = ruido()
+    lento = 0.7 + 0.3 * np.sin(2 * np.pi * 0.35 * t) * np.sin(2 * np.pi * 0.13 * t + 1)
+    emp = (paso_banda(r, 90, 450, 2) + 0.5 * paso_banda(r, 450, 1400, 2)) * corriente * lento
+    emp /= max(np.max(np.abs(emp)), 1e-9)
+    est[0] += VOL_AIRE * emp * 0.9
+    est[1] += VOL_AIRE * emp * 0.9
+    # b) golpes de aire cuando pasan la punta y la cola frente a la cámara
+    evento(est, t_punta - 0.9, racha(0, 0.45, 150, 1100, 1.0), VOL_AIRE * 1.1, tren_vs_camara(t_punta)[1])
+    evento(est, t_cola - 0.7, racha(0, 0.40, 120, 800, 1.0), VOL_AIRE * 0.8, tren_vs_camara(t_cola)[1])
+    # c) corriente de aire en la escalera y el pasillo (el hueco comunica con el andén)
+    paso = env([(0, 0), (T_ESCALERA - 6, 0), (T_ESCALERA + 3, 0.5), (T_PASILLO, 0.7),
+                (T_VESTIBULO, 0.55), (DUR - 3, 0.7), (DUR, 0.0)])
+    rr = ruido()
+    sopl = paso_banda(rr, 100, 380, 2) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.17 * t + 2.0)) * paso
+    sopl /= max(np.max(np.abs(sopl)), 1e-9)
+    est[0] += VOL_AIRE * 0.45 * sopl
+    est[1] += VOL_AIRE * 0.45 * np.roll(sopl, 40)
+    # d) silbo de las rejillas del techo/muro sur (x = 9, 16, 23, 30) al pasar la cámara
+    for tv, f in ((83.0, 1900), (86.3, 2150), (89.7, 1750), (93.3, 2050)):
+        evento(est, tv - 3.6, racha(0, 0.6, f * 0.85, f * 1.1, 1.0, orden=3), VOL_AIRE * 0.12, 0.5)
+    # e) la luz bajo la cortina: soplo que crece al acercarse, con un silbo fino
+    t0 = T_VESTIBULO + 4.0
+    n = int((DUR - t0) * SR)
+    cr = np.linspace(0, 1, n) ** 1.6
+    soplo = paso_banda(rng.standard_normal(n), 500, 1500, 2) * cr
+    f_sil = 900 + 120 * np.sin(2 * np.pi * 0.23 * np.arange(n) / SR)
+    sil = np.sin(2 * np.pi * np.cumsum(f_sil) / SR) * cr * 0.15 * (0.6 + 0.4 * np.sin(2 * np.pi * 0.4 * np.arange(n) / SR))
+    cola = (soplo / np.max(np.abs(soplo)) * 0.5 + sil) * VOL_AIRE * 0.5
+    i = int(t0 * SR)
+    est[0][i:i + n] += cola[: len(est[0]) - i]
+    est[1][i:i + n] += cola[: len(est[1]) - i]
+
+
 # =============================================================================================
 def main():
     est = [np.zeros(N), np.zeros(N)]
@@ -230,6 +350,7 @@ def main():
     pista_tren = VOL_TREN * tren(est)
     est[0] += pista_tren * 0.95
     est[1] += pista_tren * 1.05
+    aire(est)
     eventos_sueltos(est)
     chispas(est)
     est = [reverb(c, mezcla=0.30) for c in est]

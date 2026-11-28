@@ -1,0 +1,42 @@
+Pruebas automáticas — Blender 5.3.0
+
+P01  APROBADA  Construcción completa (scripts 00 a 08) en menos de 30 s
+      2.1 s
+P02  APROBADA  Idempotencia: reconstruir no duplica nada
+      {'objetos': 752, 'mallas': 668, 'luces': 76, 'materiales': 65, 'colecciones': 14, 'keyframes': 6127} → {'objetos': 752, 'mallas': 668, 'luces': 76, 'materiales': 65, 'colecciones': 14, 'keyframes': 6127}
+P03  APROBADA  Toda malla tiene un material asignado
+      668 mallas, sin material: []
+P04  APROBADA  Luces con sombra y luces animadas (parpadeo) dentro de lo previsto
+      76 luces {'AREA': 5, 'SPOT': 49, 'POINT': 22}, 57 con sombra, 17 parpadean
+P05  APROBADA  Rango, fps, resolución y formato de salida
+      1-2520 a 24 fps, 1920x1080, PNG, motor BLENDER_EEVEE, muestras 64
+P06  APROBADA  Marcadores de escena en la línea de tiempo
+      [(1, 'Tunel'), (400, 'Anden'), (560, 'Tren'), (880, 'Vagon'), (1250, 'Acceso'), (1440, 'Escalera'), (1840, 'Pasillo'), (2300, 'Vestibulo')]
+P07  APROBADA  La cámara pasa por los 31 puntos de control (error < 1 cm)
+      31 puntos, error máximo 0.038 mm
+P08  APROBADA  Velocidad de la cámara continua y razonable (sin saltos: máx < 4 m/s)
+      media 1.02 m/s, máx 2.79 m/s
+P09  APROBADA  Giro de la cámara continuo: sin saltos de más de 5° entre cuadros
+      media 8.1 °/s; pico 93.6 °/s (3.9 °/cuadro) en el frame 1996
+P10  APROBADA  El tren arranca y termina en reposo y alcanza ~1.5 × la velocidad media (Bezier)
+      media 10.00 m/s (36 km/h), pico 15.00 m/s (54 km/h), x de 81.8 a -92.0 m
+P11  APROBADA  El tren permanece fuera de la estación antes de arrancar (x > 60 m)
+      x = 81.8 m
+P12  APROBADA  Cuadros renderizados en renders/frames
+      2520 archivos, faltan 0 (verificada en el equipo del autor)
+
+12 de 12 pruebas aprobadas
+
+Métricas
+  Objetos: 752
+  Mallas: 668
+  Luces: 76
+  Materiales procedurales: 65
+  Nodos de material (total): 345
+  Vértices: 23265
+  Polígonos: 19762
+  Triángulos: 29892
+  Longitud del recorrido de la cámara (m): 107.1
+  Duración (s): 105.0
+  Mallas por colección: {'Detalles_Extra': 213, 'Pasillos': 186, 'Tren': 77, 'Detalles': 43, 'Luminarias': 42, 'Vagon': 29, 'Estructura': 28, 'Accesos': 20, 'Luminarias_Pasillo': 19, 'Via': 9, 'Iluminacion': 2}
+  Nodos por tipo: {'ShaderNodeOutputMaterial': 65, 'ShaderNodeTexCoord': 65, 'ShaderNodeValToRGB': 56, 'ShaderNodeTexNoise': 47, 'ShaderNodeBsdfPrincipled': 38, 'ShaderNodeEmission': 26, 'ShaderNodeBump': 24, 'ShaderNodeMix': 7}
